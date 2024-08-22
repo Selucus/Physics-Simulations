@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannonball</title>
+</head>
+<body>
+    <canvas id="myCanvas" style="border:2px solid"></canvas>
+    <script>
+
+
+    var canvas = document.getElementById("myCanvas");
+    var c = canvas.getContext('2d');
+
+
+    canvas.width = window.innerWidth - 20;
+    canvas.height = window.innerHeight - 100;
+
+    var simMinWidth = 20;
+    var cScale = Math.min(canvas.width,canvas.height) / simMinWidth;
+    var simWidth = canvas.width / cScale;
+    var simHeight = canvas.height / cScale;
+
+
+    function cX(pos){
+        return pos.x * cScale;
+    }
+    function cY(pos){
+        return canvas.height -  pos.y * cScale;
+    }
+
+
+    
+    var timeStep = 1.0 / 60.0;
+
+    var ball1 = {
+        radius : 0.2,
+        pos : {x: 7, y : 12},
+        vel : {x: 0, y: 0},
+        mass: 1,
+    };
+    var ball2 = {
+        radius : 0.2,
+        pos : {x: 10, y : 7},
+        vel : {x: 0, y: 0},
+        mass: 1,
+    };
+    var ball3 = {
+        radius: 0.2,
+        pos : {x: 13, y : 10},
+        vel: {x: 0, y: 0},
+        mass: 1,
+    }
+    var balls = [ball1,ball2,ball3];
+    let gConst = 4;
+    function draw(){
+        c.clearRect(0,0,canvas.width, canvas.height);
+
+        c.fillStyle = "#FF0000";
+
+        c.beginPath();
+        
+        for(let i = 0;i < balls.length;i++){
+            c.beginPath();
+
+            c.arc(cX(balls[i].pos), cY(balls[i].pos), cScale * balls[i].radius, 0.0, 2.0 * Math.PI);
+            c.closePath();
+            c.fill();
+
+        }
+        //c.arc(cX(ball1.pos), cY(ball1.pos), cScale * ball1.radius, 0.0, 2.0 * Math.PI);
+        //c.arc(cX(ball2.pos), cY(ball2.pos), cScale * ball2.radius, 0.0, 2.0 * Math.PI);
+
+        c.closePath();
+        c.fill();
+    }
+
+    function simulate(){
+        /*
+        for(let i = 0; i < forces.length;i++){
+            ball.vel.x += forces[i].x * timeStep;
+            ball.vel.y += forces[i].y * timeStep;
+        }
+        */
+        for(let i = 0; i<balls.length;i++){
+            for(let j = 0; j<balls.length;j++){
+                if(i!==j){
+                    
+                    let heightDiff = (balls[j].pos.y - balls[i].pos.y);
+                    let widthDiff = (balls[j].pos.x - balls[i].pos.x);
+                    
+                    let distance = Math.sqrt(heightDiff**2 + widthDiff**2);
+                    if(distance < balls[i].radius + balls[j].radius){
+                        distance = balls[i].radius+ balls[j].radius;
+                    }
+                    let gF = (gConst * balls[i].mass * balls[j].mass) / (distance**2);
+                    let angle = Math.atan(heightDiff/widthDiff);
+                    if(widthDiff < 0 && heightDiff < 0){
+                        angle += Math.PI;
+                    } else if(widthDiff < 0){
+                        angle += Math.PI;
+                    } else if(heightDiff < 0){
+                        angle += 2 * Math.PI;
+                    }
+                    let forceX = gF * Math.cos(angle);
+                    let forceY = gF * Math.sin(angle);
+                    if(i===0 && j === 1){
+                        console.log(angle,forceX,forceY);
+                    }
+                    // a = F / M
+                    balls[i].vel.x = balls[i].vel.x + (forceX / balls[i].mass ) * timeStep;
+                    balls[i].vel.y = balls[i].vel.y + (forceY / balls[i].mass ) * timeStep;
+
+                    // distance between 2 centres of mass
+                }
+            }
+
+
+            
+        }
+        for(let i = 0; i < balls.length;i++){
+            balls[i].pos.x += balls[i].vel.x * timeStep;
+            balls[i].pos.y += balls[i].vel.y * timeStep;
+
+            if(balls[i].pos.x < 0.0){
+                balls[i].pos.x = 0.0;
+                balls[i].vel.x = -balls[i].vel.x;
+            }
+            if(balls[i].pos.x > simWidth){
+                balls[i].pos.x = simWidth;
+                balls[i].vel.x = -balls[i].vel.x;
+            }
+            if(balls[i].pos.y < 0.0){
+                balls[i].pos.y = 0.0;
+                balls[i].vel.y = -balls[i].vel.y;
+            }
+            if(balls[i].pos.y > simHeight){
+                balls[i].pos.y = simHeight;
+                balls[i].vel.y = -balls[i].vel.y;
+            }
+        }
+        
+        
+
+
+
+
+    }
+
+    function update(){
+        simulate();
+        draw();
+        requestAnimationFrame(update);
+    }
+    update();
+
+
+    </script>
+</body>
+</html>

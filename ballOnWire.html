@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constrained dynamics</title>
+</head>
+<body>
+    <canvas id = "myCanvas"></canvas>
+
+
+<script>
+    var canvas = document.getElementById("myCanvas");
+    var c = canvas.getContext('2d');
+
+
+    canvas.width = window.innerWidth - 20;
+    canvas.height = window.innerHeight - 100;
+
+    var simMinWidth = 2.0;
+    var cScale = Math.min(canvas.width,canvas.height) / simMinWidth;
+    var simWidth = canvas.width / cScale;
+    var simHeight = canvas.height / cScale;
+
+    function cX(pos){
+        return pos.x * cScale;
+    }
+    function cY(pos){
+        return canvas.height -  pos.y * cScale;
+    }
+
+    // vector math
+
+    class Vector2{
+        constructor(x=0.0,y=0.0){
+            this.x=x;
+            this.y=y;
+        }
+        set(v){
+            this.x = v.x;
+            this.y = v.y;
+        }
+        clone() {
+            return new Vector2(this.x,this.y);
+        }
+        add(v,s = 1.0){
+            this.x += v.x * s;
+            this.y += v.y * s;
+            return this;
+        }
+        addVectors(a,b){
+            this.x = a.x + b.x;
+            this.y = a.y + b.y;
+            return this;
+        }
+        subtract(v,s = 1.0){
+            this.x -= v.x * s;
+            this.y -= v.y * s;
+            return this;
+        }
+        subtractVectors(a,b){
+            this.x = a.x - b.x;
+            this.y = a.y - b.y;
+            return this;
+        }
+        length(){
+            return Math.sqrt(this.x*this.x+this.y*this.y);
+        }
+        scale(s){
+            this.x *= s;
+            this.y *= s;
+            return this;
+        }
+        dot(v){
+            return this.x * v.x + this.y * v.y;
+        }
+        perp(){
+            return new Vector2(-this.y,this.x);
+        }
+
+    }
+
+    // scene
+    var physicsScene = 
+    {
+        gravity: new Vector2(0.0,-10.0),
+        dt : 1.0 / 60.0,
+        numSteps: 10,
+        wireCentre : new Vector2(),
+        wireRadius: 0.0,
+        balls: [],
+    };
+
+    class Ball {
+        constructor(radius, mass, pos){
+            this.radius = radius;
+            this.mass = mass;
+            this.pos = pos.clone();
+            this.prevPos = pos.clone();
+            this.vel = new Vector2();
+        }
+        startStep(dt, gravity){
+            this.vel.add(gravity,dt);
+            this.prevPos.set(this.pos);
+            this.pos.add(this.vel,dt);
+        }
+        keepOnWire(centre, radius){
+            var dir = new Vector2();
+            dir.subtractVectors(this.pos, centre);
+            var len = dir.length();
+            if(len === 0.0){
+                return;
+            }
+            dir.scale(1.0 / len);
+            var lambda = physicsScene.wireRadius - len;
+            this.pos.add(dir, lambda);
+
+        }
+        endStep(dt){
+            this.vel.subtractVectors(this.pos, this.prevPos);
+            this.vel.scale(1.0 / dt);
+        }
+    }
+
+    class AnalyticBall{
+        constructor(radius, ballRadius, angle){
+            this.radius = radius;
+            this.ballRadius = ballRadius;
+            this.angle = angle;
+            this.omega = 0.0;
+        }
+        simulate(dt,gravity){
+            var acc = -gavity / this.radius * Math.sin(this.angle);
+            this.omega += acc * dt;
+            this.angle += this.omega * dt;
+        }
+        getPos(){
+            return new Vector2(
+                Math.sin(this,angle) * this.radius,
+                -Math.cos(this.angle) * this.radius
+            );
+        }
+    }
+    // collision handling
+
+    function handleBallBallCollision(ball1, ball2){
+        var resttitution = 1.0;
+        var dir = new Vector2();
+        dir.subtractVectors(ball2.pos,ball1.pos);
+        var d = dir.length();
+        if(d === 0.0 || d > ball1.radius + ball2.radius){
+            return;
+        }
+        dir.scale(1.0/d);
+        
+        var corr = (ball1.radius + ball2.radius - d) / 2.0;
+        ball1.pos.add(dir, -corr);
+        ball2.pos.add(dir, corr);
+
+        var v1 = ball1.vel.dot(dir);
+        var v2 = ball2.vel.dot(dir);
+
+        var m1 = ball1.mass;
+        var m2 = ball2.mass;
+
+        var newV1 = (m1 * v1 + m2 * v2 - m2 * (v1 - v2) * resttitution) / (m1 + m2);
+        var newV2 = (m1 * v1 + m2 * v2 - m1 * (v2 - v1) * resttitution) / (m1 + m2);
+
+
+        ball1.vel.add(dir, newV1 - v1);
+        ball2.vel.add(dir, newV2 - v2);
+    }   
+
+    function setupScene(){
+        physicsScene.wireCentre.x = simWidth / 2.0;
+        physicsScene.wireCentre.y = simHeight / 2.0;
+        physicsScene.wireRadius = simMinWidth * 0.4;
+
+        var pos = new Vector2(
+            physicsScene.wireCentre.x + physicsScene.wireRadius,
+            physicsScene.wireCentre.y
+        );
+        physicsScene.balls = [new Ball(0.1,1.0,pos), 
+            new Ball(0.1,1.0,pos.add({x: 0,y:1})),
+            new Ball(0.1,1.0,pos.add({x: 0,y:2})),
+            new Ball(0.1,1.0,pos.add({x: 0,y:-1}))
+        
+        ];
+
+
+
+    }
+
+    // draw
+
+    function drawCircle(pos, radius, filled){
+        c.beginPath();
+        c.arc(
+            cX(pos),cY(pos),cScale * radius, 0.0, 2.0 * Math.PI
+        );
+        c.closePath();
+        if(filled){
+            c.fill();
+        }else{
+            c.stroke();
+        }
+    }
+
+    function draw(){
+        c.clearRect(0,0,canvas.width,canvas.height);
+        c.strokeStyle = "#000000";
+        c.lineWidth = 2.0;
+        drawCircle(physicsScene.wireCentre,physicsScene.wireRadius,false);
+
+        c.fillStyle = "#FF0000";
+        
+        for( var i = 0; i < physicsScene.balls.length; i ++) {
+            var ball = physicsScene.balls[i];
+            drawCircle(ball.pos,ball.radius,true);
+        }
+        
+
+
+    }
+
+    function simulate(){
+        var sdt = physicsScene.dt / physicsScene.numSteps;
+
+        for(step = 0; step < physicsScene.numSteps;step ++){
+
+            for( var i = 0; i < physicsScene.balls.length; i ++) {
+                physicsScene.balls[i].startStep(sdt,physicsScene.gravity);
+            }
+            for( var i = 0; i < physicsScene.balls.length; i ++) {
+                physicsScene.balls[i].keepOnWire(
+                physicsScene.wireCentre,physicsScene.wireRadius
+            );
+            }
+            for( var i = 0; i < physicsScene.balls.length; i ++) {
+                physicsScene.balls[i].endStep(sdt);
+            }
+            for( var i = 0; i < physicsScene.balls.length; i ++) {
+                for( var j = 0; j < i; j++){
+                    handleBallBallCollision(physicsScene.balls[i],physicsScene.balls[j]);
+                }
+            }
+
+
+            
+        }
+        
+    }
+
+    function update(){
+        simulate();
+        draw();
+        requestAnimationFrame(update);
+    }
+    setupScene();
+    update();
+
+
+</script>
+</body>
+</html>
