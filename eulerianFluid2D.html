@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    <canvas id="myCanvas" style="border:2px solid"></canvas>
+<script>
+// gauss-seidel method
+
+    var canvas = document.getElementById('myCanvas');
+    var c = canvas.getContext("2d");
+    canvas.width = window.innerWidth - 20;
+    canvas.height = window.innerHeight - 100;
+
+    canvas.focus();
+
+    var simHeight = 1.1;	
+	var cScale = canvas.height / simHeight;
+	var simWidth = canvas.width / cScale;
+
+    var U_FIELD = 0;
+	var V_FIELD = 1;
+	var S_FIELD = 2;
+
+    var cnt = 0;
+
+	function cX(x) {
+		return x * cScale;
+	}
+
+	function cY(y) {
+		return canvas.height - y * cScale;
+	}
+
+    // simulator
+
+    class Fluid{
+        constructor(density,numX,numY,h){
+            this.density = density;
+            this.numX = numX + 2;
+            this.numY = numY + 2;
+            this.numCells = this.numX * this.numY;
+			this.h = h;
+			this.u = new Float32Array(this.numCells);
+			this.v = new Float32Array(this.numCells);
+			this.newU = new Float32Array(this.numCells);
+			this.newV = new Float32Array(this.numCells);
+			this.p = new Float32Array(this.numCells);
+			this.s = new Float32Array(this.numCells);
+			this.m = new Float32Array(this.numCells);
+			this.newM = new Float32Array(this.numCells);
+			this.m.fill(1.0)
+			var num = numX * numY;
+        }
+    }
+
+
+</script>
+</body>
+</html>
